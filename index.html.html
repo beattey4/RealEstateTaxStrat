@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real Estate Exit Tax Calculator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f3f6f8;
+      --panel: #ffffff;
+      --ink: #17212b;
+      --muted: #667085;
+      --line: #d0d7de;
+      --accent: #174f5f;
+      --accent2: #d9efe8;
+      --warn: #92400e;
+      --danger: #b42318;
+      --success: #067647;
+      --soft: #f8fafb;
+      --shadow: 0 10px 28px rgba(16, 24, 40, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--ink); font-size:18px; line-height:1.45; }
+    header { background: linear-gradient(135deg, #123d4a, #1e6876); color:#fff; padding:34px 28px; }
+    header .wrap, main { max-width:1320px; margin:0 auto; }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; letter-spacing:-0.5px; }
+    .subtitle { max-width:1000px; color:#e8f4f2; font-size:20px; margin:0; }
+    main { padding:26px; }
+    .grid { display:grid; grid-template-columns:450px 1fr; gap:24px; align-items:start; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); overflow:hidden; }
+    .card-header { padding:18px 20px; background:#f8fafb; border-bottom:1px solid var(--line); }
+    .card-header h2, .card-header h3 { margin:0; font-size:23px; }
+    .card-body { padding:20px; }
+    .section-title { margin:24px 0 12px; font-size:20px; color:var(--accent); font-weight:900; border-top:1px solid var(--line); padding-top:18px; }
+    .section-title:first-child { margin-top:0; border-top:none; padding-top:0; }
+    label { display:block; margin:13px 0 5px; font-size:15px; font-weight:800; color:#344054; }
+    input, select { width:100%; padding:12px 13px; border:1px solid #b7c0cb; border-radius:11px; font-size:17px; background:#fff; color:var(--ink); }
+    .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .row-3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+    .button-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+    button { border:none; border-radius:12px; padding:13px 16px; font-size:16px; font-weight:900; cursor:pointer; }
+    button:hover { opacity:0.92; }
+    .primary { background:var(--accent); color:#fff; }
+    .secondary { background:#eaf0f3; color:#18333d; }
+    .danger { background:#fee4e2; color:var(--danger); }
+    .success { background:var(--success); color:#fff; }
+    .property-tabs { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+    .tab { padding:10px 13px; border-radius:999px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:15px; font-weight:900; }
+    .tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .summary-grid { display:grid; grid-template-columns:repeat(4, minmax(150px, 1fr)); gap:14px; margin-bottom:20px; }
+    .metric { background:#f8fafb; border:1px solid var(--line); border-radius:16px; padding:16px; }
+    .metric strong { display:block; font-size:15px; color:var(--muted); margin-bottom:8px; }
+    .metric span { display:block; font-size:27px; font-weight:900; letter-spacing:-0.5px; }
+    .metric.highlight { background:var(--accent2); border-color:#9dcfc3; }
+    .metric.warning { background:#fff7ed; border-color:#fed7aa; }
+    table { width:100%; border-collapse:collapse; overflow:hidden; border-radius:14px; font-size:16px; margin-bottom:18px; }
+    th, td { padding:12px 10px; border-bottom:1px solid var(--line); text-align:right; vertical-align:top; }
+    th:first-child, td:first-child { text-align:left; }
+    th { background:#eef3f5; color:#344054; font-size:15px; }
+    tr:last-child td { border-bottom:none; }
+    .insight { border-left:6px solid var(--accent); background:#f7fbfb; padding:16px 18px; border-radius:14px; margin:18px 0; }
+    .insight h3 { margin:0 0 8px; font-size:21px; }
+    .insight p { margin:8px 0; color:#344054; }
+    .note { font-size:14px; color:var(--muted); margin-top:14px; }
+    .footer-note { margin-top:24px; background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; padding:16px; border-radius:14px; font-size:15px; }
+    .pill { display:inline-block; padding:5px 9px; border-radius:999px; background:#e8f4f2; color:#174f5f; font-size:13px; font-weight:900; }
+    @media (max-width:1080px) { .grid { grid-template-columns:1fr; } .summary-grid { grid-template-columns:repeat(2, 1fr); } }
+    @media (max-width:640px) { body { font-size:16px; } h1 { font-size:30px; } main { padding:16px; } .row-2, .row-3, .summary-grid { grid-template-columns:1fr; } }
+
+    /* Lead Capture Modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(16,24,40,0.55); z-index:1000; align-items:center; justify-content:center; padding:20px; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:#fff; border-radius:22px; box-shadow:0 24px 60px rgba(16,24,40,0.18); max-width:520px; width:100%; overflow:hidden; animation:modalIn 0.22s ease; }
+    @keyframes modalIn { from { opacity:0; transform:translateY(18px) scale(0.97); } to { opacity:1; transform:none; } }
+    .modal-header { background:linear-gradient(135deg,#123d4a,#1e6876); padding:28px 30px 22px; color:#fff; }
+    .modal-header h2 { margin:0 0 6px; font-size:24px; }
+    .modal-header p { margin:0; color:#ceeee8; font-size:15px; }
+    .modal-body { padding:26px 30px; }
+    .modal-body label { display:block; margin:0 0 5px; font-size:14px; font-weight:800; color:#344054; }
+    .modal-body input { width:100%; padding:11px 13px; border:1px solid #b7c0cb; border-radius:10px; font-size:16px; color:var(--ink); margin-bottom:14px; }
+    .modal-body input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(23,79,95,0.12); }
+    .modal-actions { display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+    .btn-cta-primary { background:var(--accent); color:#fff; border:none; border-radius:12px; padding:14px; font-size:16px; font-weight:900; cursor:pointer; width:100%; }
+    .btn-cta-primary:hover { background:#123d4a; }
+    .btn-cta-dismiss { background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; padding:6px; text-decoration:underline; }
+    .modal-confirm { padding:30px; text-align:center; display:none; }
+    .modal-confirm .check { font-size:44px; margin-bottom:12px; }
+    .modal-confirm h3 { margin:0 0 8px; font-size:22px; color:var(--accent); }
+    .modal-confirm p { margin:0 0 22px; color:var(--muted); font-size:15px; }
+    .btn-calendar { display:inline-block; background:var(--accent); color:#fff; font-size:16px; font-weight:900; padding:13px 28px; border-radius:12px; text-decoration:none; }
+    .btn-calendar:hover { background:#123d4a; }
+    .btn-no-thanks { display:block; margin-top:12px; background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; text-decoration:underline; }
+
+    /* Get Report CTA card */
+    .cta-card { background:linear-gradient(135deg,#123d4a,#1e6876); border:none; }
+    .cta-card .card-body { padding:28px 32px; text-align:center; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Real Estate Exit Tax Calculator</h1>
+    <p class="subtitle">Model capital gain, depreciation recapture, NIIT, state tax, 1031 exchange deferral, installment-sale timing, and after-tax sale proceeds across one property or an entire portfolio.</p>
+  </div>
+</header>
+<main>
+  <div class="grid">
+    <section class="card">
+      <div class="card-header"><h2>Inputs</h2></div>
+      <div class="card-body">
+        <div class="section-title">Taxpayer Profile</div>
+        <label>Filing Status</label>
+        <select id="filingStatus" onchange="profile.filingStatus=this.value; calculateAll();">
+          <option value="single">Single</option>
+          <option value="mfj">Married Filing Jointly / Surviving Spouse</option>
+          <option value="mfs">Married Filing Separately</option>
+          <option value="hoh">Head of Household</option>
+        </select>
+        <div class="row-2">
+          <div>
+            <label>Taxable Income Before Property Sales</label>
+            <input id="baseTaxableIncome" type="number" oninput="profile.baseTaxableIncome=num(this.value); calculateAll();" />
+          </div>
+          <div>
+            <label>MAGI Before Property Sales</label>
+            <input id="baseMAGI" type="number" oninput="profile.baseMAGI=num(this.value); calculateAll();" />
+          </div>
+        </div>
+        <div class="row-2">
+          <div>
+            <label>State Tax Rate</label>
+            <input id="stateRate" type="number" step="0.1" oninput="profile.stateRate=num(this.value)/100; calculateAll();" />
+          </div>
+          <div>
+            <label>Tax Year Basis</label>
+            <select id="taxYear" onchange="profile.taxYear=this.value; calculateAll();">
+              <option value="2025">2025 Federal LTCG Thresholds</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="section-title">Properties</div>
+        <div class="property-tabs" id="propertyTabs"></div>
+        <div class="button-row" style="margin-top:0; margin-bottom:18px;">
+          <button class="secondary" onclick="addProperty()">+ Add Property</button>
+          <button class="danger" onclick="removeProperty()">Remove Current</button>
+        </div>
+
+        <label>Property Name</label>
+        <input id="name" oninput="updateField('name', this.value)" />
+        <label>Property Type</label>
+        <select id="propertyType" onchange="updateField('propertyType', this.value)">
+          <option value="residential">Residential Rental / 27.5-Year Property</option>
+          <option value="commercial">Commercial / 39-Year Property</option>
+          <option value="land">Land Only / No Depreciation</option>
+        </select>
+        <div class="row-2">
+          <div><label>Purchase Price</label><input id="purchasePrice" type="number" oninput="updateNum('purchasePrice', this.value)" /></div>
+          <div><label>Sale Price</label><input id="salePrice" type="number" oninput="updateNum('salePrice', this.value)" /></div>
+        </div>
+        <div class="row-2">
+          <div><label>Buying Closing Costs Added to Basis</label><input id="buyClosingCosts" type="number" oninput="updateNum('buyClosingCosts', this.value)" /></div>
+          <div><label>Selling Costs</label><input id="sellingCosts" type="number" oninput="updateNum('sellingCosts', this.value)" /></div>
+        </div>
+        <div class="row-2">
+          <div><label>Land Value Allocation</label><input id="landValue" type="number" oninput="updateNum('landValue', this.value)" /></div>
+          <div><label>Capital Improvements</label><input id="improvements" type="number" oninput="updateNum('improvements', this.value)" /></div>
+        </div>
+        <div class="row-2">
+          <div><label>Years Held / Depreciated</label><input id="yearsHeld" type="number" step="0.1" oninput="updateNum('yearsHeld', this.value)" /></div>
+          <div><label>Manual Depreciation Override</label><input id="manualDepreciation" type="number" placeholder="Leave blank to auto-calc" oninput="updateManualDep(this.value)" /></div>
+        </div>
+        <div class="row-2">
+          <div><label>Suspended Passive Losses Released</label><input id="passiveLosses" type="number" oninput="updateNum('passiveLosses', this.value)" /></div>
+          <div><label>Other Basis Adjustments</label><input id="basisAdjustments" type="number" oninput="updateNum('basisAdjustments', this.value)" /></div>
+        </div>
+
+        <div class="section-title">Strategy Options</div>
+        <label>1031 Exchange / Tax Deferral Amount</label>
+        <select id="exchangeMode" onchange="updateField('exchangeMode', this.value)">
+          <option value="none">No 1031 Exchange</option>
+          <option value="full">Illustrate Full 1031 Deferral</option>
+          <option value="partial">Illustrate Partial 1031 / Boot</option>
+        </select>
+        <div class="row-2">
+          <div><label>Boot / Non-Reinvested Cash</label><input id="boot" type="number" oninput="updateNum('boot', this.value)" /></div>
+          <div><label>Installment Sale % Collected in Year 1</label><input id="installmentPct" type="number" step="1" oninput="updatePctInput('installmentPct', this.value)" /></div>
+        </div>
+
+        <div class="button-row">
+          <button class="primary" onclick="calculateAll()">Calculate</button>
+          <button class="success" onclick="downloadPDF()">Download PDF Report</button>
+        </div>
+        <p class="note">This pass applies 2025 federal long-term capital gain thresholds by filing status, statutory NIIT thresholds, a simplified 25% federal unrecaptured Section 1250 recapture rate, and a manually entered state rate.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="card">
+        <div class="card-header"><h2>Portfolio Summary</h2></div>
+        <div class="card-body">
+          <div class="summary-grid" id="portfolioSummary"></div>
+          <div class="insight">
+            <h3>Core interpretation</h3>
+            <p>The calculator now treats a multi-property sale as a portfolio event. Long-term capital gain brackets and NIIT are applied after aggregating taxable gain, rather than treating every property as an isolated transaction.</p>
+            <p>Depreciation recapture is still tracked property-by-property because each property may carry a different basis, land allocation, depreciation history, and passive-loss offset.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:24px;">
+        <div class="card-header"><h2>Strategy Comparison</h2></div>
+        <div class="card-body" id="strategyResults"></div>
+      </div>
+      <div class="card" style="margin-top:24px;">
+        <div class="card-header"><h2>Property-Level Results</h2></div>
+        <div class="card-body" id="propertyResults"></div>
+      </div>
+      <div class="footer-note"><strong>Important:</strong> This is an educational estimate, not tax advice. Actual results can change based on allowed-or-allowable depreciation, Section 1250 rules, Section 1245 property, entity ownership, passive activity rules, installment sale treatment, debt relief, related-party rules, 1031 compliance, and state-specific treatment.</div>
+      <div class="card cta-card" style="margin-top:24px;">
+        <div class="card-body" style="padding:30px 32px; text-align:center;">
+          <p style="margin:0 0 6px; color:#a8ddd4; font-size:13px; font-weight:900; letter-spacing:0.09em; text-transform:uppercase;">Want to know what your options actually are?</p>
+          <h2 style="margin:0 0 12px; color:#ffffff; font-size:26px; line-height:1.2;">Significantly Reduce Real Estate Tax Liabilities.</h2>
+          <p style="margin:0 0 24px; color:#ceeee8; font-size:16px; max-width:540px; margin-left:auto; margin-right:auto;">Real estate investors face significant tax challenges. Our special Trust structure significantly reduces those liabilities. Let us show you how in a 20-minute phone call.</p>
+          <button onclick="openLeadModal()" style="background:#ffffff; color:#123d4a; border:none; border-radius:12px; padding:14px 32px; font-size:17px; font-weight:900; cursor:pointer; letter-spacing:-0.2px;">Learn More →</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- Lead Capture Modal -->
+<div class="modal-overlay" id="leadModal">
+  <div class="modal">
+
+    <!-- Form view -->
+    <div id="modalForm">
+      <div class="modal-header">
+        <h2>Let's look at your options.</h2>
+        <p>Our Advanced Trust strategy can significantly reduce your tax burden.</p>
+      </div>
+      <div class="modal-body">
+        <p style="margin:0 0 18px; font-size:14px; color:var(--muted); line-height:1.55;">Real estate investors often face daunting tax liabilities. Velomon tames them, and in a 20-minute call.</p>
+        <label>Full Name *</label>
+        <input id="leadName" type="text" placeholder="Jane Smith" />
+        <label>Email Address *</label>
+        <input id="leadEmail" type="email" placeholder="jane@example.com" />
+        <label>Phone Number *</label>
+        <input id="leadPhone" type="tel" placeholder="(555) 555-5555" />
+        <div class="modal-actions">
+          <button class="btn-cta-primary" onclick="submitLead()">Submit</button>
+          <div style="text-align:center; margin-top:6px; color:var(--muted); font-size:13px;">— or —</div>
+          <a href="https://talktojay.youcanbook.me" target="_blank" style="display:block; text-align:center; background:#eaf0f3; color:#18333d; border-radius:12px; padding:13px; font-size:15px; font-weight:900; text-decoration:none;">Skip the line — book a call directly →</a>
+          <button class="btn-cta-dismiss" onclick="closeLeadModal()">No thanks</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirmation view -->
+    <div class="modal-confirm" id="modalConfirm">
+      <div class="check">✅</div>
+      <h3>Got it — thanks!</h3>
+      <p>Jay will be in touch with your numbers and some strategies worth reviewing. If you'd rather pick a time now, you can grab a spot on his calendar:</p>
+      <a class="btn-calendar" href="https://talktojay.youcanbook.me" target="_blank">Book a Call with Jay →</a>
+      <button class="btn-no-thanks" onclick="closeLeadModal()">I'll wait to hear from him</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Hidden iframe absorbs the Jotform POST response so the page doesn't redirect -->
+<iframe name="jotform_target" style="display:none;"></iframe>
+<script>
+  const cgThresholds2025 = {
+    single: { zero: 48350, twenty: 533400, niit: 200000 },
+    mfj: { zero: 96700, twenty: 600050, niit: 250000 },
+    mfs: { zero: 48350, twenty: 300000, niit: 125000 },
+    hoh: { zero: 64750, twenty: 566700, niit: 200000 }
+  };
+
+  let profile = { filingStatus:'mfj', baseTaxableIncome:150000, baseMAGI:150000, stateRate:0.05, taxYear:'2025' };
+  let properties = [];
+  let activeIndex = 0;
+
+  function defaultProperty(n) {
+    return { name:`Property ${n}`, propertyType:'residential', purchasePrice:400000, salePrice:650000, buyClosingCosts:6000, sellingCosts:39000, landValue:80000, improvements:25000, yearsHeld:8, manualDepreciation:'', passiveLosses:0, basisAdjustments:0, exchangeMode:'none', boot:0, installmentPct:1 };
+  }
+  function num(v){ const x=Number(v); return isFinite(x)?x:0; }
+  function fmt(n){ if(!isFinite(n)) n=0; return n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}); }
+  function pct(n){ if(!isFinite(n)) n=0; return (n*100).toFixed(1)+'%'; }
+  function life(p){ if(p.propertyType==='commercial') return 39; if(p.propertyType==='land') return 0; return 27.5; }
+
+  function init(){
+    properties=[defaultProperty(1)];
+    loadProfile(); renderTabs(); loadActiveProperty(); calculateAll();
+  }
+  function loadProfile(){
+    document.getElementById('filingStatus').value=profile.filingStatus;
+    document.getElementById('baseTaxableIncome').value=profile.baseTaxableIncome;
+    document.getElementById('baseMAGI').value=profile.baseMAGI;
+    document.getElementById('stateRate').value=profile.stateRate*100;
+    document.getElementById('taxYear').value=profile.taxYear;
+  }
+  function addProperty(){ properties.push(defaultProperty(properties.length+1)); activeIndex=properties.length-1; renderTabs(); loadActiveProperty(); calculateAll(); }
+  function removeProperty(){ if(properties.length===1) return alert('At least one property is required.'); properties.splice(activeIndex,1); activeIndex=Math.max(0,activeIndex-1); renderTabs(); loadActiveProperty(); calculateAll(); }
+  function renderTabs(){
+    const tabs=document.getElementById('propertyTabs'); tabs.innerHTML='';
+    properties.forEach((p,i)=>{ const d=document.createElement('div'); d.className='tab'+(i===activeIndex?' active':''); d.textContent=p.name||`Property ${i+1}`; d.onclick=()=>{ activeIndex=i; renderTabs(); loadActiveProperty(); }; tabs.appendChild(d); });
+  }
+  function loadActiveProperty(){ const p=properties[activeIndex]; Object.keys(p).forEach(k=>{ const el=document.getElementById(k); if(el) el.value = k==='installmentPct' ? p[k]*100 : p[k]; }); }
+  function updateField(k,v){ properties[activeIndex][k]=v; if(k==='name') renderTabs(); calculateAll(); }
+  function updateNum(k,v){ properties[activeIndex][k]=num(v); calculateAll(); }
+  function updatePctInput(k,v){ properties[activeIndex][k]=Math.max(0, Math.min(1, num(v)/100)); calculateAll(); }
+  function updateManualDep(v){ properties[activeIndex].manualDepreciation = v==='' ? '' : num(v); calculateAll(); }
+
+  function calcProperty(p){
+    const grossBasis=p.purchasePrice+p.buyClosingCosts+p.improvements+p.basisAdjustments;
+    const depreciableBasis=Math.max(0,grossBasis-p.landValue);
+    const depLife=life(p);
+    const autoDep=depLife>0 ? Math.min(depreciableBasis, depreciableBasis/depLife*p.yearsHeld) : 0;
+    const accumulatedDepreciation=p.manualDepreciation==='' ? autoDep : Math.max(0,p.manualDepreciation);
+    const adjustedBasis=grossBasis-accumulatedDepreciation;
+    const netProceeds=p.salePrice-p.sellingCosts;
+    const totalGainBeforeLosses=netProceeds-adjustedBasis;
+    const releasedPassiveLosses=Math.min(Math.max(0,p.passiveLosses), Math.max(0,totalGainBeforeLosses));
+    const taxableGain=Math.max(0,totalGainBeforeLosses-releasedPassiveLosses);
+    const loss=Math.min(0,totalGainBeforeLosses);
+    const recaptureGain=Math.min(accumulatedDepreciation, taxableGain);
+    const capitalGain=Math.max(0,taxableGain-recaptureGain);
+    const deferrableGain = p.exchangeMode==='full' ? taxableGain : p.exchangeMode==='partial' ? Math.max(0, taxableGain - Math.max(0,p.boot)) : 0;
+    const bootTaxableGain = p.exchangeMode==='partial' ? Math.min(taxableGain, Math.max(0,p.boot)) : 0;
+    const installmentYearOneGain = Math.max(0, taxableGain * p.installmentPct);
+    return { grossBasis, depreciableBasis, autoDep, accumulatedDepreciation, adjustedBasis, netProceeds, totalGainBeforeLosses, releasedPassiveLosses, taxableGain, loss, recaptureGain, capitalGain, deferrableGain, bootTaxableGain, installmentYearOneGain };
+  }
+
+  function total(arr,k){ return arr.reduce((s,r)=>s+(r[k]||0),0); }
+
+  function layeredCapitalGainTax(capGain){
+    const th=cgThresholds2025[profile.filingStatus];
+    let remaining=capGain;
+    let taxableIncome=profile.baseTaxableIncome;
+    let tax=0, zeroAmt=0, fifteenAmt=0, twentyAmt=0;
+    const zeroRoom=Math.max(0, th.zero - taxableIncome);
+    const useZero=Math.min(remaining, zeroRoom); zeroAmt+=useZero; remaining-=useZero; taxableIncome+=useZero;
+    const fifteenRoom=Math.max(0, th.twenty - taxableIncome);
+    const useFifteen=Math.min(remaining, fifteenRoom); fifteenAmt+=useFifteen; tax += useFifteen*0.15; remaining-=useFifteen; taxableIncome+=useFifteen;
+    if(remaining>0){ twentyAmt=remaining; tax += remaining*0.20; }
+    return { tax, zeroAmt, fifteenAmt, twentyAmt };
+  }
+
+  function portfolioTax(results, gainOverride=null){
+    const taxableGain = gainOverride===null ? total(results,'taxableGain') : gainOverride;
+    const actualCapGain = gainOverride===null ? total(results,'capitalGain') : Math.max(0, gainOverride - total(results,'recaptureGain'));
+    const actualRecapture = gainOverride===null ? total(results,'recaptureGain') : Math.min(total(results,'recaptureGain'), gainOverride);
+    const recaptureTax = actualRecapture * 0.25;
+    const cg = layeredCapitalGainTax(actualCapGain);
+    const th=cgThresholds2025[profile.filingStatus];
+    const magiAfter = profile.baseMAGI + taxableGain;
+    const magiExcess = Math.max(0, magiAfter - th.niit);
+    const niitBase = Math.min(taxableGain, magiExcess);
+    const niitTax = niitBase * 0.038;
+    const stateTax = taxableGain * profile.stateRate;
+    const totalTax = recaptureTax + cg.tax + niitTax + stateTax;
+    return { taxableGain, actualRecapture, actualCapGain, recaptureTax, cgTax:cg.tax, niitTax, stateTax, totalTax, magiAfter, niitBase, zeroAmt:cg.zeroAmt, fifteenAmt:cg.fifteenAmt, twentyAmt:cg.twentyAmt };
+  }
+
+  function calculateAll(){
+    const results=properties.map(calcProperty);
+    const tax=portfolioTax(results);
+    renderPortfolio(results,tax); renderStrategy(results,tax); renderPropertyResults(results);
+  }
+
+  function renderPortfolio(results,tax){
+    const netProceeds=total(results,'netProceeds');
+    const netAfterTax=netProceeds-tax.totalTax;
+    const eff=tax.taxableGain>0 ? tax.totalTax/tax.taxableGain : 0;
+    document.getElementById('portfolioSummary').innerHTML=`
+      <div class="metric highlight"><strong>Total Taxable Gain</strong><span>${fmt(tax.taxableGain)}</span></div>
+      <div class="metric"><strong>Depreciation Recapture</strong><span>${fmt(tax.actualRecapture)}</span></div>
+      <div class="metric warning"><strong>Estimated Total Tax</strong><span>${fmt(tax.totalTax)}</span></div>
+      <div class="metric highlight"><strong>Net After-Tax Proceeds</strong><span>${fmt(netAfterTax)}</span></div>
+      <div class="metric"><strong>Federal Recapture Tax</strong><span>${fmt(tax.recaptureTax)}</span></div>
+      <div class="metric"><strong>Federal Capital Gain Tax</strong><span>${fmt(tax.cgTax)}</span></div>
+      <div class="metric"><strong>NIIT + State Tax</strong><span>${fmt(tax.niitTax+tax.stateTax)}</span></div>
+      <div class="metric"><strong>Effective Tax Rate on Gain</strong><span>${pct(eff)}</span></div>`;
+  }
+
+  function renderStrategy(results,tax){
+    const netProceeds=total(results,'netProceeds');
+    const deferrable=total(results,'deferrableGain');
+    const bootGain=total(results,'bootTaxableGain');
+    const installmentYearOneGain=total(results,'installmentYearOneGain');
+    const fullSaleTax=tax.totalTax;
+    const exchangeTax = deferrable>0 ? portfolioTax(results, Math.max(0, tax.taxableGain-deferrable)).totalTax : 0;
+    const installmentTax = installmentYearOneGain>0 ? portfolioTax(results, installmentYearOneGain).totalTax : 0;
+    document.getElementById('strategyResults').innerHTML=`
+      <table>
+        <thead><tr><th>Scenario</th><th>Taxable Gain Modeled Now</th><th>Estimated Current Tax</th><th>Illustrated Current Net Cash After Tax</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Sell and Pay Tax</strong></td><td>${fmt(tax.taxableGain)}</td><td>${fmt(fullSaleTax)}</td><td>${fmt(netProceeds-fullSaleTax)}</td></tr>
+          <tr><td><strong>1031 Exchange Illustration</strong><br><span class="pill">Deferral, not forgiveness</span></td><td>${fmt(Math.max(0,tax.taxableGain-deferrable))}</td><td>${fmt(exchangeTax)}</td><td>${fmt(netProceeds-exchangeTax)}</td></tr>
+          <tr><td><strong>Installment Sale Illustration</strong><br><span class="pill">Year-one recognition only</span></td><td>${fmt(installmentYearOneGain)}</td><td>${fmt(installmentTax)}</td><td>${fmt(netProceeds-installmentTax)}</td></tr>
+        </tbody>
+      </table>
+      <div class="insight"><h3>Strategy warning</h3><p>A 1031 exchange generally defers gain into replacement property rather than eliminating it. Installment treatment may spread gain over time, but depreciation recapture may not receive the same deferral treatment as remaining gain. This version is an illustration engine, not a final tax opinion.</p></div>`;
+  }
+
+  function renderPropertyResults(results){
+    let html='';
+    results.forEach((r,i)=>{ const p=properties[i]; html += `
+      <h3 style="margin:24px 0 10px; color:var(--accent);">${p.name||`Property ${i+1}`}</h3>
+      <table><thead><tr><th>Item</th><th>Amount</th><th>Notes</th></tr></thead><tbody>
+        <tr><td>Gross Basis</td><td>${fmt(r.grossBasis)}</td><td>Purchase price + capitalized buying costs + improvements + adjustments</td></tr>
+        <tr><td>Depreciable Basis</td><td>${fmt(r.depreciableBasis)}</td><td>Gross basis less land allocation</td></tr>
+        <tr><td>Accumulated Depreciation</td><td>${fmt(r.accumulatedDepreciation)}</td><td>${p.manualDepreciation===''?'Auto-calculated using straight-line life':'Manual override used'}</td></tr>
+        <tr><td>Adjusted Basis</td><td>${fmt(r.adjustedBasis)}</td><td>Gross basis less depreciation</td></tr>
+        <tr><td>Net Sale Proceeds</td><td>${fmt(r.netProceeds)}</td><td>Sale price less selling costs</td></tr>
+        <tr><td>Total Gain Before Passive Losses</td><td>${fmt(r.totalGainBeforeLosses)}</td><td>Net proceeds less adjusted basis</td></tr>
+        <tr><td>Released Passive Losses Applied</td><td>${fmt(r.releasedPassiveLosses)}</td><td>Reduces taxable gain in this simplified model</td></tr>
+        <tr><td>Taxable Gain</td><td>${fmt(r.taxableGain)}</td><td>Amount entering portfolio-level tax stack</td></tr>
+        <tr><td>Depreciation Recapture Component</td><td>${fmt(r.recaptureGain)}</td><td>Tracked separately and modeled at up to 25% federal</td></tr>
+        <tr><td>Remaining Long-Term Capital Gain</td><td>${fmt(r.capitalGain)}</td><td>Runs through taxpayer-level 0% / 15% / 20% brackets</td></tr>
+      </tbody></table>`; });
+    document.getElementById('propertyResults').innerHTML=html;
+  }
+
+  function buildPDF(){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'pt', format:'letter' });
+    const results=properties.map(calcProperty), tax=portfolioTax(results);
+    const margin=48; let y=52;
+    function t(s,x,yy,size=10,bold=false){ doc.setFont('helvetica',bold?'bold':'normal'); doc.setFontSize(size); doc.text(String(s),x,yy); }
+    function w(s,width=500){ return doc.splitTextToSize(String(s),width); }
+    function page(extra=90){ if(y+extra>740){ doc.addPage(); y=52; } }
+    function money(n){ return fmt(n); }
+    doc.setFillColor(20,63,76); doc.rect(0,0,612,92,'F'); doc.setTextColor(255,255,255);
+    t('Real Estate Exit Tax Report',margin,44,22,true); t('Capital Gain, Depreciation Recapture, NIIT, State Tax & Strategy Illustration',margin,68,11,false);
+    doc.setTextColor(23,33,43); y=125;
+    t('Portfolio Executive Summary',margin,y,17,true); y+=26;
+    const netProceeds=total(results,'netProceeds'), netAfterTax=netProceeds-tax.totalTax;
+    [['Total Net Sale Proceeds',money(netProceeds)],['Total Taxable Gain',money(tax.taxableGain)],['Depreciation Recapture Component',money(tax.actualRecapture)],['Federal Recapture Tax',money(tax.recaptureTax)],['Federal Capital Gain Tax',money(tax.cgTax)],['NIIT',money(tax.niitTax)],['State Tax',money(tax.stateTax)],['Estimated Total Tax',money(tax.totalTax)],['Estimated Net After-Tax Proceeds',money(netAfterTax)]].forEach(r=>{ t(r[0],margin,y,11,true); t(r[1],370,y,11,false); y+=20; });
+    y+=18; t('Capital Gain Bracket Layering',margin,y,15,true); y+=22;
+    [['0% LTCG Layer',money(tax.zeroAmt)],['15% LTCG Layer',money(tax.fifteenAmt)],['20% LTCG Layer',money(tax.twentyAmt)],['MAGI After Sale',money(tax.magiAfter)],['NIIT Base',money(tax.niitBase)]].forEach(r=>{ t(r[0],margin,y,10,true); t(r[1],370,y,10,false); y+=18; });
+    y+=18; doc.setFillColor(247,251,251); doc.roundedRect(margin,y,516,92,10,10,'F');
+    t('Interpretive Note',margin+16,y+24,13,true);
+    w('This estimate applies the taxpayer profile across the combined portfolio sale. Property-level gain is calculated separately, then aggregated into capital gain bracket, NIIT, and state-tax calculations.').forEach((line,idx)=>t(line,margin+16,y+46+idx*13,10,false));
+    y+=124;
+    doc.addPage(); y=52; t('Strategy Comparison',margin,y,18,true); y+=28;
+    const deferrable=total(results,'deferrableGain'), installmentGain=total(results,'installmentYearOneGain');
+    const exchangeTax = deferrable>0 ? portfolioTax(results, Math.max(0,tax.taxableGain-deferrable)).totalTax : 0;
+    const installmentTax = installmentGain>0 ? portfolioTax(results, installmentGain).totalTax : 0;
+    [['Sell and Pay Tax',money(tax.taxableGain),money(tax.totalTax)],['1031 Exchange Illustration',money(Math.max(0,tax.taxableGain-deferrable)),money(exchangeTax)],['Installment Sale Illustration',money(installmentGain),money(installmentTax)]].forEach(r=>{ t(r[0],margin,y,11,true); t('Taxable Now: '+r[1],250,y,10,false); t('Current Tax: '+r[2],410,y,10,false); y+=24; });
+    y+=18; t('Property-Level Detail',margin,y,18,true); y+=28;
+    results.forEach((r,i)=>{ page(230); const p=properties[i]; t(p.name||`Property ${i+1}`,margin,y,15,true); y+=22; [['Sale Price',money(p.salePrice)],['Net Sale Proceeds',money(r.netProceeds)],['Gross Basis',money(r.grossBasis)],['Accumulated Depreciation',money(r.accumulatedDepreciation)],['Adjusted Basis',money(r.adjustedBasis)],['Taxable Gain',money(r.taxableGain)],['Depreciation Recapture Component',money(r.recaptureGain)],['Long-Term Capital Gain Component',money(r.capitalGain)]].forEach(row=>{ t(row[0],margin+10,y,10,true); t(row[1],370,y,10,false); y+=17; }); y+=18; });
+    page(140); t('Limitations & Next Review Items',margin,y,15,true); y+=22;
+    ['Confirm allowed-or-allowable depreciation from tax returns and depreciation schedules.','Confirm whether any Section 1245 property or cost-segregation components require different character treatment.','Confirm debt relief, boot, related-party rules, and 1031 exchange compliance.','Model state-specific law, entity ownership, installment-sale rules, and passive activity treatment before acting.'].forEach(b=>{ const lines=w('• '+b,490); lines.forEach(line=>{ t(line,margin,y,10,false); y+=14; }); y+=4; });
+    return doc;
+  }
+
+  function downloadPDF(){
+    buildPDF().save('real-estate-exit-tax-report.pdf');
+  }
+
+  // ── Lead Capture Modal ──────────────────────────────────────────────
+  function openLeadModal(){
+    document.getElementById('leadModal').classList.add('open');
+    document.getElementById('modalForm').style.display='block';
+    document.getElementById('modalConfirm').style.display='none';
+    document.getElementById('leadName').focus();
+  }
+
+  function closeLeadModal(){
+    document.getElementById('leadModal').classList.remove('open');
+  }
+
+  // Close on backdrop click
+  document.getElementById('leadModal').addEventListener('click', function(e){
+    if(e.target === this) closeLeadModal();
+  });
+
+  function submitLead(){
+    const name  = document.getElementById('leadName').value.trim();
+    const email = document.getElementById('leadEmail').value.trim();
+    const phone = document.getElementById('leadPhone').value.trim();
+
+    if(!name){ alert('Please enter your name.'); document.getElementById('leadName').focus(); return; }
+    if(!email || !email.includes('@')){ alert('Please enter a valid email address.'); document.getElementById('leadEmail').focus(); return; }
+    if(!phone){ alert('Please enter a phone number.'); document.getElementById('leadPhone').focus(); return; }
+
+    // Build calculator summary for the notes field
+    const results    = properties.map(calcProperty);
+    const tax        = portfolioTax(results);
+    const netProceeds = total(results,'netProceeds');
+    const netAfterTax = netProceeds - tax.totalTax;
+    const propLines  = properties.map((p,i) => {
+      const r = results[i];
+      return `${p.name||'Property '+(i+1)}: Sale Price ${fmt(p.salePrice)} | Taxable Gain ${fmt(r.taxableGain)} | Recapture ${fmt(r.recaptureGain)}`;
+    }).join('\n');
+
+    const summary = [
+      '── Portfolio Summary ──',
+      `Net Sale Proceeds:   ${fmt(netProceeds)}`,
+      `Total Taxable Gain:  ${fmt(tax.taxableGain)}`,
+      `  Recapture:         ${fmt(tax.actualRecapture)}`,
+      `  Recapture Tax:     ${fmt(tax.recaptureTax)}`,
+      `  Cap Gain Tax:      ${fmt(tax.cgTax)}`,
+      `  NIIT:              ${fmt(tax.niitTax)}`,
+      `  State Tax:         ${fmt(tax.stateTax)}`,
+      `Total Est. Tax:      ${fmt(tax.totalTax)}`,
+      `Net After-Tax:       ${fmt(netAfterTax)}`,
+      '',
+      '── Properties ──',
+      propLines,
+      '',
+      '── Taxpayer Profile ──',
+      `Filing Status: ${profile.filingStatus.toUpperCase()}`,
+      `Base Taxable Income: ${fmt(profile.baseTaxableIncome)}`,
+      `Base MAGI: ${fmt(profile.baseMAGI)}`,
+      `State Rate: ${(profile.stateRate*100).toFixed(2)}%`,
+    ].join('\n');
+
+    // Build a hidden HTML form and submit it to Jotform via the hidden iframe
+    // Field names use Jotform's standard naming: q{id}_{camelName}
+    // These IDs (3, 4, 5, 6) are the typical auto-assigned IDs for a 3-field form.
+    // If submissions aren't arriving, check field IDs in Jotform → Edit Form → field settings.
+    const jfForm = document.createElement('form');
+    jfForm.method  = 'POST';
+    jfForm.action  = 'https://submit.jotform.com/submit/261733459557064/';
+    jfForm.target  = 'jotform_target'; // posts into the hidden iframe
+    jfForm.style.display = 'none';
+
+    const fields = {
+      'q3_fullName[first]': name.split(' ')[0] || name,
+      'q3_fullName[last]':  name.split(' ').slice(1).join(' ') || '',
+      'q4_emailAddress':    email,
+      'q5_phoneNumber[full]': phone,
+      'q6_calculatorSummary': summary,
+      'formID': '261733459557064',
+      'simple_spc': '1',
+    };
+
+    Object.entries(fields).forEach(([k,v]) => {
+      const inp = document.createElement('input');
+      inp.type  = 'hidden';
+      inp.name  = k;
+      inp.value = v;
+      jfForm.appendChild(inp);
+    });
+
+    document.body.appendChild(jfForm);
+    jfForm.submit();
+    document.body.removeChild(jfForm);
+
+    // Show confirmation immediately — no page redirect
+    document.getElementById('modalForm').style.display  = 'none';
+    document.getElementById('modalConfirm').style.display = 'block';
+  }
+
+  init();
+</script>
+</body>
+</html>
